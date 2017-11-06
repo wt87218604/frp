@@ -68,6 +68,13 @@ func ModifyHttpRequest(c frpNet.Conn, rewriteHost string) (_ frpNet.Conn, err er
 	if buff, err = hostNameRewrite(rd, rewriteHost, remoteIP); err != nil {
 		return sc, err
 	}
+
+	buf := new(bytes.Buffer)
+	buf.Write(buff)
+	buf.WriteString(fmt.Sprintf("X-Forwarded-For: %s\r\n", remoteIP))
+	buf.WriteString(fmt.Sprintf("X-Real-IP: %s\r\n", remoteIP))
+	buf.WriteString(fmt.Sprintf("Proxy-Addr: %s\r\n", "frp"))
+	buff = buf.Bytes()
 	err = sc.WriteBuff(buff)
 	return sc, err
 }
@@ -119,6 +126,7 @@ func parseRequest(org []byte, rewriteHost string, remoteIP string) (ret []byte, 
 		buf.Write(b)
 		buf.WriteString(fmt.Sprintf("X-Forwarded-For: %s\r\n", remoteIP))
 		buf.WriteString(fmt.Sprintf("X-Real-IP: %s\r\n", remoteIP))
+		buf.WriteString(fmt.Sprintf("Proxy-Addr: %s\r\n", "frp"))
 		if len(changedBuf) == 0 {
 			tp.WriteTo(buf)
 		} else {
