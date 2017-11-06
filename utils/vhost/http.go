@@ -33,6 +33,8 @@ type HttpMuxer struct {
 	*VhostMuxer
 }
 
+var _local_addr string
+
 func GetHttpRequestInfo(c frpNet.Conn) (_ frpNet.Conn, _ map[string]string, err error) {
 	reqInfoMap := make(map[string]string, 0)
 	sc, rd := frpNet.NewShareConn(c)
@@ -64,6 +66,7 @@ func NewHttpMuxer(listener frpNet.Listener, timeout time.Duration) (*HttpMuxer, 
 func ModifyHttpRequest(c frpNet.Conn, rewriteHost string) (_ frpNet.Conn, err error) {
 	sc, rd := frpNet.NewShareConn(c)
 	var buff []byte
+	_local_addr = strings.Split(c.LocalAddr().String(), ":")[0]
 	remoteIP := strings.Split(c.RemoteAddr().String(), ":")[0]
 	if buff, err = hostNameRewrite(rd, rewriteHost, remoteIP); err != nil {
 		return sc, err
@@ -73,7 +76,7 @@ func ModifyHttpRequest(c frpNet.Conn, rewriteHost string) (_ frpNet.Conn, err er
 	buf.Write(buff)
 	buf.WriteString(fmt.Sprintf("X-Forwarded-For: %s\r\n", remoteIP))
 	buf.WriteString(fmt.Sprintf("X-Real-IP: %s\r\n", remoteIP))
-	buf.WriteString(fmt.Sprintf("Proxy-Addr: %s\r\n", "frp"))
+	buf.WriteString(fmt.Sprintf("Proxy-Addr: %s\r\n", _local_addr))
 	buff = buf.Bytes()
 	err = sc.WriteBuff(buff)
 	return sc, err
@@ -126,7 +129,7 @@ func parseRequest(org []byte, rewriteHost string, remoteIP string) (ret []byte, 
 		buf.Write(b)
 		buf.WriteString(fmt.Sprintf("X-Forwarded-For: %s\r\n", remoteIP))
 		buf.WriteString(fmt.Sprintf("X-Real-IP: %s\r\n", remoteIP))
-		buf.WriteString(fmt.Sprintf("Proxy-Addr: %s\r\n", "frp"))
+		buf.WriteString(fmt.Sprintf("Proxy-Addr: %s\r\n", _local_addr))
 		if len(changedBuf) == 0 {
 			tp.WriteTo(buf)
 		} else {
@@ -152,6 +155,7 @@ func parseRequest(org []byte, rewriteHost string, remoteIP string) (ret []byte, 
 	buf.WriteString(firstLine)
 	buf.WriteString(fmt.Sprintf("X-Forwarded-For: %s\r\n", remoteIP))
 	buf.WriteString(fmt.Sprintf("X-Real-IP: %s\r\n", remoteIP))
+	buf.WriteString(fmt.Sprintf("Proxy-Addr: %s\r\n", _local_addr))
 	tp.WriteTo(buf)
 	return buf.Bytes(), err
 }
